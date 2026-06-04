@@ -1,13 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { municipalities } from "@/lib/data";
-import { OUTREACH_STATUSES } from "@/lib/types";
+import { OUTREACH_STATUSES, STATUS_COLORS } from "@/lib/types";
 import type { Municipality } from "@/lib/types";
 import { StatusBadge, YesNoBadge } from "@/components/Badge";
 import { DetailModal } from "@/components/DetailModal";
 import { AddMunicipalityModal } from "@/components/AddMunicipalityModal";
 import { formatDate, isDeadlineSoon } from "@/lib/utils";
+
+// Leaflet touches `window`, so load the map client-side only.
+const MunicipalityMap = dynamic(
+  () => import("@/components/MunicipalityMap"),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[420px] items-center justify-center text-sm text-gray-400">
+        Loading map…
+      </div>
+    ),
+  }
+);
 
 const STATES = Array.from(new Set(municipalities.map((m) => m.state))).sort();
 
@@ -17,8 +31,16 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [roadboticsOnly, setRoadboticsOnly] = useState(false);
   const [activeRfpOnly, setActiveRfpOnly] = useState(false);
-  const [selected, setSelected] = useState<Municipality | null>(null);
+  // selectedId drives the map highlight; detail drives the modal. Keeping them
+  // separate lets a location stay highlighted after the modal is dismissed.
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [detail, setDetail] = useState<Municipality | null>(null);
   const [showAdd, setShowAdd] = useState(false);
+
+  const select = (m: Municipality) => {
+    setSelectedId(m.id);
+    setDetail(m);
+  };
 
   const filtered = useMemo(() => {
     return municipalities.filter((m) => {
@@ -130,6 +152,29 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Map */}
+        <div className="mb-4 overflow-hidden rounded border border-gray-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+            <h2 className="text-sm font-semibold text-navy">Outreach Map</h2>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              {OUTREACH_STATUSES.map((s) => (
+                <span key={s} className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <span
+                    className="inline-block h-3 w-3 rounded-full border border-white shadow-sm"
+                    style={{ backgroundColor: STATUS_COLORS[s] }}
+                  />
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+          <MunicipalityMap
+            municipalities={filtered}
+            selectedId={selectedId}
+            onSelect={select}
+          />
+        </div>
+
         {/* Result count */}
         <p className="mb-2 text-sm text-gray-500">
           {filtered.length} of {municipalities.length} municipalities
@@ -155,9 +200,13 @@ export default function Dashboard() {
               {filtered.map((m, i) => (
                 <tr
                   key={m.id}
-                  onClick={() => setSelected(m)}
+                  onClick={() => select(m)}
                   className={`cursor-pointer border-b border-gray-100 hover:bg-blue-50/50 ${
-                    i % 2 === 1 ? "bg-gray-50/50" : "bg-white"
+                    m.id === selectedId
+                      ? "bg-blue-50 ring-1 ring-inset ring-navy/30"
+                      : i % 2 === 1
+                        ? "bg-gray-50/50"
+                        : "bg-white"
                   }`}
                 >
                   <td className="px-4 py-3 font-medium text-gray-900">
@@ -212,10 +261,10 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {selected && (
+      {detail && (
         <DetailModal
-          municipality={selected}
-          onClose={() => setSelected(null)}
+          municipality={detail}
+          onClose={() => setDetail(null)}
         />
       )}
       {showAdd && <AddMunicipalityModal onClose={() => setShowAdd(false)} />}

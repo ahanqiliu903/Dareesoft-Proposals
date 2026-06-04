@@ -14,6 +14,8 @@ export interface Municipality {
   id: number;
   city: string;
   state: string;
+  lat: number;
+  lng: number;
   population: string;
   roadBudget: string;
   roadbotics: boolean;
@@ -35,3 +37,13 @@ export const OUTREACH_STATUSES: OutreachStatus[] = [
   "Proposal Sent",
   "Closed",
 ];
+
+// Hex colors keyed by status — shared by map markers and the legend.
+// Ordered as a completion gradient: gray → blue → amber → purple → green.
+export const STATUS_COLORS: Record<OutreachStatus, string> = {
+  "Not Contacted": "#9ca3af",
+  Contacted: "#2563eb",
+  "In Discussion": "#d97706",
+  "Proposal Sent": "#7c3aed",
+  Closed: "#16a34a",
+};
